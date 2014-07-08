@@ -6,9 +6,7 @@ Install from PyPI
 
 Run the following from your terminal or GitBash_ (for windows users) to install from PyPI_::
 
-    pip install zmqpipeline
-
-
+    pip install py-zmq-pipeline
 
 .. _PyPI: https://pypi.python.org/pypi
 .. _GitBash: http://msysgit.github.io/
@@ -38,7 +36,6 @@ You should now be able to import zmqpipeline from your Python interpreter::
 
     >>> import zmqpipeline
 
-
 Running tests
 --------------
 
@@ -48,5 +45,8 @@ To run the tests::
 
     py.test tests
 
+Current build status is available on `GitHub Repository Homepage`_
 
 .. _pytest: http://pytest.org/latest/
+.. _`GitHub Repository Homepage`: https://github.com/ailling/py-zmq-pipeline
+
