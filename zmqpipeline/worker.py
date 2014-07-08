@@ -258,6 +258,9 @@ class MetaDataWorker(object):
     def send_metadata(self):
         # metadata = quantnode.Calculator.GetImplementationMetadata()
         metadata = self.get_metadata()
+        if not isinstance(metadata, dict):
+            raise TypeError('MetaDataWorker.get_metadata must return a dictionary')
+
         print 'sending metadata'
         self.worker.send(messages.create_metadata(metadata))
 
@@ -272,5 +275,9 @@ class MetaDataWorker(object):
 
     @abstractmethod
     def get_metadata(self):
+        """
+        Retrieves meta data to be sent to tasks and workers.
+        :return: A dictionary of meta data
+        """
         return {}
 

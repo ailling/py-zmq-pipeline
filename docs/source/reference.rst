@@ -57,7 +57,7 @@ The signature of the handle() method is:
     def handle(self, data, address, msgtype):
         """
         Handle invocation by the distributor.
-        :param data: data received from the advertising worker. Slated for future versions; until then, this is an empty dictionary
+        :param data: Meta data, if provided, otherwise an empty dictionary
         :param address: The address of the worker data will be sent to.
         :param msgtype: The message type received from the worker. Typically zmqpipeline.messages.MESSAGE_TYPE_READY
         :return: A dictionary of data to be sent to the worker, or None, in which case the worker will receive no information
@@ -232,7 +232,49 @@ A minimal implementation of the multi threaded worker is:
 MetaDataWorker Class
 -----------------------
 
-Documentation on the meta worker is forthcoming.
+Despite its name, MetaDataWorker doesn't inherit from the Worker base class.
+
+It's a stand-alone abstract base class requiring the following implementations:
+
+    * endpoint: a valid :ref:`endpoint-address` instance
+        - this is the address of the meta data worker and should be supplied to the distributor at instantiation when using meta data.
+    * get_metadata(): a method returning a dictionary of meta data
+
+The signature of get_metadata() is:
+
+.. code-block:: python
+
+    @abstractmethod
+    def get_metadata(self):
+        """
+        Retrieves meta data to be sent to tasks and workers.
+        :return: A dictionary of meta data
+        """
+        return {}
+
+A typical use case for retrieving meta data is querying a database or introspecting live code.
+
+To start the meta data worker, call the run() method. A minimal implementation of a meta data worker is provided below.
+
+.. code-block:: python
+
+    import zmqpipeline
+
+    class MyMetaData(zmqpipeline.MetaDataWorker):
+        endpoint = zmqpipeline.EndpointAddress('ipc://metaworker.ipc')
+
+        def get_metadata(self):
+            """
+            Returns meta data for illustrative purposes
+            :return:
+            """
+            return {
+                'meta_variable': 'my value',
+            }
+
+    if __name__ == '__main__':
+        instance = MyMetaData()
+        instance.run()
 
 
 .. _collector-class:

@@ -45,7 +45,7 @@ Additional features include:
 
 .. _msgpack: http://msgpack.org/
 .. _examples: examples.html
-
+.. _`ZeroMQ Pipeline pattern`: http://zguide.zeromq.org/py:all#toc14
 
 Overview
 ---------

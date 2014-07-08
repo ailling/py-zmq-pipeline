@@ -73,7 +73,7 @@ class Distributor(object):
         msg = self.metadata_client.recv()
         data, task, msgtype = messages.get(msg)
         assert msgtype == messages.MESSAGE_TYPE_META_DATA
-        assert task == messages.TASK_TYPE_NA
+        assert task == ''
 
         print 'storing metadata: ', data
         if data:
@@ -152,6 +152,9 @@ class Distributor(object):
 
                     else:
                         data, tt, msgtype = messages.get(msg)
+                        data = data or {}
+                        if self.metadata:
+                            data.update(self.metadata)
 
                         if msgtype == messages.MESSAGE_TYPE_READY:
                             "invoke the registered function"
@@ -159,6 +162,7 @@ class Distributor(object):
                             if not isinstance(sdata, dict) and sdata is not None:
                                 raise TypeError('Task handler must return a dictionary or nothing')
 
+                            sdata.update(data)
                             task.client.send_multipart([
                                 address, b'', messages.create_data(tt, sdata)
                             ])

@@ -64,7 +64,7 @@ class Task(object):
     def handle(self, data, address, msgtype):
         """
         Handle invocation by the distributor.
-        :param data: data received from the advertising worker. Slated for future versions; until then, this is an empty dictionary
+        :param data: Meta data, if provided, otherwise an empty dictionary
         :param address: The address of the worker data will be sent to.
         :param msgtype: The message type received from the worker. Typically zmqpipeline.messages.MESSAGE_TYPE_READY
         :return: A dictionary of data to be sent to the worker, or None, in which case the worker will receive no information
