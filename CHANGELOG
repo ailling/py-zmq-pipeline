@@ -4,7 +4,7 @@ v: 0.1.1
 
 - Added documentation, examples and deployment packaging
 - Added sphinx docs; readthedocs hook
-- Added .travis.yaml
+- Added .travis.yml
 
 ===================================
 v: 0.1.0
