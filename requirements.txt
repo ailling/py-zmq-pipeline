@@ -1,0 +1,7 @@
+argparse==1.2.1
+msgpack-python==0.4.2
+py==1.4.20
+pytest==2.5.2
+pytz==2014.4
+pyzmq==14.3.1
+wsgiref==0.1.2

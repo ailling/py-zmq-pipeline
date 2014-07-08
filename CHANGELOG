@@ -1,0 +1,12 @@
+===================================
+v: 0.1.1
+2014-07-07
+
+- Added documentation, examples and deployment packaging
+
+===================================
+v: 0.1.0
+2014-07-02
+
+- Initial development and version logging of the py-zmq-pipeline project
+

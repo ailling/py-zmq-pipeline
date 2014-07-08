@@ -1,0 +1,13 @@
+A high level pipeline pattern implemented in Python with ZeroMQ.
+
+Pipeline is a data and task distribution pattern for distributed
+and parallel computing. This implementation abstracts away many details of ZeroMQ
+while keeping all the performance advantages the framework offers.
+
+This library focuses more on task distribution than data distribution, since
+distributing data creates a memory bottleneck and tends not to scale well.
+
+Client workers are responsible for both retrieval and processing of data
+in this implementation.
+
+Github repository: https://github.com/ailling/py-zmq-pipeline
