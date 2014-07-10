@@ -6,5 +6,5 @@ This library is a high-level python implementation of the pipeline pattern using
 
 # Documentation:
 
-http://py-zmq-pipeline.readthedocs.org/en/latest/installation.html
+http://py-zmq-pipeline.readthedocs.org/en/latest/
 

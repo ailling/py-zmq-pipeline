@@ -1,4 +1,3 @@
-
 import serializer
 
 MESSAGE_TYPE_ACK = 'ACK'
