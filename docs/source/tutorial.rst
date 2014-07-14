@@ -418,3 +418,79 @@ Message signatures are defined as follows:
     def create_ready(task = '', data=''):
     def create_end(task = '', data=''):
 
+.. _logging:
+
+Logging
+--------
+
+py-zmq-pipeline makes use of python's built in logging library to output information about what's going on-
+for example, connections being made, initializations, data messages being passed around, etc.
+
+More about Python's logging libraries can be found here: `Python Logging Facility`_.
+
+.. _`Python Logging Facility`: https://docs.python.org/2/library/logging.html
+
+py-zmq-pipeline logs to the following loggers:
+
+    * zmqpipeline.distributor. Logs made from the distributor clas
+    * zmqpipeline.collector. Logs made from the worker class
+    * zmqpipeline.task. Logs made from the task base class
+    * zmqpipeline.worker. Logs made from either the single threaded worker or the multi threaded worker class.
+    * zmqpipeline.metadataworker. Logs made from the meta data worker class
+
+Note that it's recommended you extend this logging naming convention in your own implementations for organization.
+For example, zmqpipeline.task.FirstTask could refer to logs made from your first task, etc.
+
+.. code-block:: python
+
+    import zmqpipeline
+    zmqpipeline.configureLogging({
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            # console logger
+            'console': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+                'formatter': 'simple'
+            },
+            # a file handler
+            'file': {
+                'level': 'DEBUG',
+                'class': 'logging.FileHandler',
+                'filename': 'output.log',
+                'formatter': 'verbose'
+            },
+        },
+        'loggers': {
+            'zmqpipeline.distributor': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+            'zmqpipeline.task': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+            'zmqpipeline.collector': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+            'zmqpipeline.worker': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+        },
+        'formatters': {
+            'verbose': {
+                'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s'
+            },
+            'simple': {
+                'format': '%(levelname)s %(message)s'
+            },
+        },
+    })
+

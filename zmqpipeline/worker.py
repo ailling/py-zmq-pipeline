@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
+import logging
 
 from utils import messages
 from descriptors import TaskType, EndpointAddress
@@ -52,29 +53,37 @@ class Worker(object):
         return ''
 
     def __init__(self, *args, **kwargs):
+        self.logger = logging.getLogger('zmqpipeline.worker')
+
         self.context = zmq.Context()
-        print 'worker will send to collector endpoint: %s' % self.collector_endpoint
+
+        self.logger.info('Worker connecting to collector endpoint: %s', self.collector_endpoint)
         self.sender = self.context.socket(zmq.PUSH)
         self.sender.connect(self.collector_endpoint)
 
-        print 'worker connecting to endpoint %s' % self.endpoint
+        self.logger.info('Worker connecting to endpoint: %s', self.endpoint)
         self.worker = self.context.socket(zmq.REQ)
         zhelpers.set_id(self.worker)
         self.worker.connect(self.endpoint)
 
-        print 'worker id: %s' % self.worker.getsockopt(zmq.IDENTITY)
+        self.worker_id = self.worker.getsockopt(zmq.IDENTITY)
+        self.logger.info('Setting worker id: %s', self.worker_id)
 
 
     def send_init_msg(self):
-        print 'sending init message to %s' % self.endpoint
+        self.logger.info('Sending init message to %s' % self.endpoint)
+
         self.worker.send(b'')
         self.worker.recv_multipart()
 
-        print 'received reply - initializing worker'
+        self.logger.info('Received init reply.')
 
         initfn = getattr(self, 'init_worker', None)
         if initfn and callable(initfn):
+            self.logger.info('Initialization method found. Invoking init_worker()')
             initfn()
+        else:
+            self.logger.info('No initialization method found (init_worker() not defined). Skipping initiliaization.')
 
 
     @abstractmethod
@@ -113,19 +122,22 @@ class MultiThreadedWorker(Worker):
 
     def __init__(self, *args, **kwargs):
         super(MultiThreadedWorker, self).__init__(*args, **kwargs)
-
         self.thread_router = self.context.socket(zmq.REP)
         self.thread_router.bind(helpers.endpoint_binding(self.thread_endpoint))
 
 
     def worker_thread(self, worker_index, context):
+        self.logger.info('Connecting thread %d to endpoint %s', worker_index, self.thread_endpoint)
         w = context.socket(zmq.REQ)
         zhelpers.set_id(w)
         w.connect(self.thread_endpoint)
 
         initfn = getattr(self, 'init_thread', None)
         if initfn and callable(initfn):
+            self.logger.info('Thread initialization method found. Invoking init_thread()')
             initfn(worker_index = worker_index)
+        else:
+            self.logger.info('No thread initialization found (init_thread() undefined). Skipping thread initialization.')
 
 
         while True:
@@ -140,46 +152,49 @@ class MultiThreadedWorker(Worker):
                 break
 
             data = data or {}
+            self.logger.debug('Worker thread %d invoking handle_thread_execution with data: %s', worker_index, data)
             sdata = self.handle_thread_execution(data = data, index = worker_index)
             if sdata:
                 data.update(sdata)
+
+            self.logger.debug('Sending data to collector: %s', data)
             smsg = messages.create_data(self.task_type, data)
             self.sender.send(smsg)
 
 
 
     def init_threads(self):
+        self.logger.info('Initializing %d threads', self.n_threads)
         for i in range(self.n_threads):
             Thread(target = self.worker_thread, args=[i, self.context]).start()
 
     def shutdown_threads(self):
+        self.logger.info('Shutting down %d threads', self.n_threads)
         for _ in range(self.n_threads):
             self.thread_router.recv()
             self.thread_router.send(messages.create_end(task = self.task_type))
 
 
     def main_loop(self):
-        print 'main loop running'
+        self.logger.info('Multi threaded worker running at address %s, ID: %s', self.endpoint, self.worker_id)
 
         while True:
-            print 'sending ready message'
             self.worker.send(messages.create_ready(self.task_type))
 
             msg = self.worker.recv()
-            print 'received reply'
-
             data, tt, msgtype = messages.get(msg)
-
             assert tt == self.task_type
 
             if msgtype == messages.MESSAGE_TYPE_END:
-                print 'received end message'
+                self.logger.info('Worker received END message. Shutting down threads.')
                 self.shutdown_threads()
-                print 'threads are shutdown'
+                self.logger.info('Threads are shutdown')
                 break
 
             self.thread_router.recv()
             data = data or {}
+
+            self.logger.debug('Invoking handle_execution with data: %s', data)
             sdata = self.handle_execution(data) or {}
             self.thread_router.send(messages.create_data(self.task_type, sdata))
 
@@ -225,26 +240,23 @@ class SingleThreadedWorker(Worker):
     A worker that processes data on a single thread
     """
     def main_loop(self):
-        print 'worker - main loop running'
+        self.logger.info('Single threaded worker running at address %s, ID: %s', self.endpoint, self.worker_id)
 
         while True:
-            # print 'sending ready message'
-
             self.worker.send(messages.create_ready(self.task_type))
-
             msg = self.worker.recv()
-            # print 'received reply'
-
             data, tt, msgtype = messages.get(msg)
-
             assert tt == self.task_type
 
             if msgtype == messages.MESSAGE_TYPE_END:
-                print 'received end message'
+                self.logger.info('Worker received END message')
                 break
 
             data = data or {}
+            self.logger.debug('Worker invoking handle_execution on task type %s with data: %s', self.task_type, data)
             sdata = self.handle_execution(data) or {}
+
+            self.logger.debug('Worker sending results from task type: %s - data: %s', self.task_type, sdata)
             smsg = messages.create_data(self.task_type, sdata)
             self.sender.send(smsg)
 
@@ -281,24 +293,27 @@ class MetaDataWorker(object):
     def endpoint(self):
         return ''
 
+
     def __init__(self):
         self.context = zmq.Context()
         self.worker = self.context.socket(zmq.REQ)
         zhelpers.set_id(self.worker)
         self.worker.connect(self.endpoint)
+        self.logger = logging.getLogger('zmqpipeline.metadataworker')
+
 
     def send_metadata(self):
-        # metadata = quantnode.Calculator.GetImplementationMetadata()
+        self.logger.info('Collecting meta data')
+
         metadata = self.get_metadata()
         if not isinstance(metadata, dict):
             raise TypeError('MetaDataWorker.get_metadata must return a dictionary')
 
-        print 'sending metadata'
+        self.logger.info('Sending metadata: %s', metadata)
         self.worker.send(messages.create_metadata(metadata))
 
-        # sent metadata - wait for reply
         self.worker.recv()
-        print 'metadata reply received'
+        self.logger.info('Meta data sent. Success reply received')
 
 
     def run(self):

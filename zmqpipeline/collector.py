@@ -1,8 +1,10 @@
+import logging
 from abc import ABCMeta, abstractmethod, abstractproperty
-
 import zmq
 from utils import messages
 import helpers
+
+logger = logging.getLogger('zmqpipeline.collector')
 
 
 class CollectorMeta(ABCMeta):
@@ -15,6 +17,9 @@ class CollectorMeta(ABCMeta):
 
 
 class Collector(object):
+    """
+    Collects results from the workers and sends ACKs (acknowledgements) back to the distributor
+    """
     __metaclass__ = CollectorMeta
 
     @abstractproperty
@@ -44,17 +49,20 @@ class Collector(object):
 
 
     def __init__(self):
+        logger.info('Initializing collector')
+
         self.context = zmq.Context()
 
-        print 'endpoint: %s' % self.endpoint
+        logger.info('Connecting to endpoint %s', self.endpoint)
         self.receiver = self.context.socket(zmq.PULL)
         self.receiver.bind(helpers.endpoint_binding(self.endpoint))
 
-        print 'ack sender endpoint: %s' % self.ack_endpoint
+        logger.info('Connecting to endpoint %s', self.ack_endpoint)
         self.ack_sender = self.context.socket(zmq.PUSH)
         self.ack_sender.bind(helpers.endpoint_binding(self.ack_endpoint))
 
         self.ack_data = {}
+
 
     @abstractmethod
     def handle_collection(self, data, task_type, msgtype):
@@ -88,14 +96,14 @@ class Collector(object):
         :return: None
         """
         acks_sent = 0
-        print 'main loop running'
+        logger.info('Collector is running (main loop procesing)')
 
         while True:
             msg = self.receiver.recv()
             data, task_type, msgtype = messages.get(msg)
 
             if msgtype == messages.MESSAGE_TYPE_END:
-                print 'end message received'
+                logger.info('END message received')
                 self.handle_finished(data, task_type)
                 break
 
@@ -106,11 +114,13 @@ class Collector(object):
                 'msgtype': msgtype
             }
 
+            logger.debug('Invoking handle_collection with parameters: %s', params)
+
             sdata = self.handle_collection(**params)
             if sdata and isinstance(sdata, dict):
                 self.ack_data.update(sdata)
 
-            # print 'sending ack %d' % acks_sent
+            logger.debug('Sending ACK %d to distributor with data: %s', acks_sent, self.ack_data)
             self.ack_sender.send(messages.create_ack(task_type, self.ack_data))
             acks_sent += 1
 

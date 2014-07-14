@@ -1,6 +1,9 @@
 from abc import ABCMeta, abstractproperty, abstractmethod
 from descriptors import TaskType, EndpointAddress
 from collections import defaultdict
+import logging
+
+logger = logging.getLogger('zmqpipeline.task')
 
 
 class TaskMeta(ABCMeta):
@@ -81,6 +84,7 @@ class Task(object):
         :param metadata: Metadata received from the distributor
         :return:
         """
+        logger.debug('Initializing task with meta data %s', metadata)
         self.metadata = metadata
 
     @abstractmethod

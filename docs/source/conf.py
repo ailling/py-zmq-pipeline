@@ -19,9 +19,7 @@ import os
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 proj = os.path.abspath('../..')
-lib = os.path.abspath('../../zmqpipeline')
 sys.path.insert(0, proj)
-# sys.path.insert(0, lib)
 
 # -- General configuration ------------------------------------------------
 
