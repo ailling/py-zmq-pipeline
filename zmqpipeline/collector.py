@@ -19,10 +19,27 @@ class Collector(object):
 
     @abstractproperty
     def endpoint(self):
+        """
+        Endpoint to bind the collector to for receiving messages from workers. Workers should
+        connect to this same endpoint for sending data.
+
+        This property must be defined by the subclassed implementation.
+
+        :return: An EndpointAddress instance
+        """
         return ''
+
 
     @abstractproperty
     def ack_endpoint(self):
+        """
+        Endpoint for sending ACKs (acknowledgements) back to the distributor. The distributor
+        should connect to this same endpoint for receiving ACKs.
+
+        This property must be defined by the sublcassed implementation.
+
+        :return: An EndpointAdress instance
+        """
         return ''
 
 
@@ -43,24 +60,33 @@ class Collector(object):
     def handle_collection(self, data, task_type, msgtype):
         """
         Invoked by the collector when data is received from a worker.
-        :param data: Data supplied by the worker (a dictionary). If the worker doesn't return anything this will be an empty dict
-        :param task_type: The task type of the worker and corresponding task
-        :param msgtype: The message type. Typically zmqpipeline.messages.MESSAGE_TYPE_DATA
+
+        :param dict data: Data supplied by the worker (a dictionary). If the worker doesn't return anything this will be an empty dict
+        :param str task_type: The task type of the worker and corresponding task
+        :param str msgtype: The message type. Typically zmqpipeline.messages.MESSAGE_TYPE_DATA
+
         :return:
         """
         pass
 
+
     def handle_finished(self, data, task_type):
         """
         Invoked by the collector when message
-        :param data: Data received from the worker on a termination signal
-        :param task_type: The task type of the worker and correspond task
+
+        :param dict data: Data received from the worker on a termination signal
+        :param string task_type: The task type of the worker and correspond task
         :return: None
         """
         pass
 
 
     def run(self):
+        """
+        Runs the collector. Invoke this method to start the collector
+
+        :return: None
+        """
         acks_sent = 0
         print 'main loop running'
 

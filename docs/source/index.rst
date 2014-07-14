@@ -22,6 +22,7 @@ Contents
 
    installation
    overview
+   tutorial
    examples
    reference
    license

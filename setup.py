@@ -13,7 +13,8 @@ install_requires = [
     'wsgiref >= 0.1.2',
     'py >= 1.4.20',
     'pytest >= 2.5.2',
-    'pytz >= 2014.4'
+    'pytz >= 2014.4',
+    'factory_boy >= 2.4.1'
 ]
 
 long_description = ''

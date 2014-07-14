@@ -25,6 +25,13 @@ class TaskMeta(ABCMeta):
 
 
 class Task(object):
+    """
+    Tasks define what information the workers receive at each invocation as well as how many items
+    to be processed.
+
+    Tasks dynamically configure the Distributor, which looks up and invokes registered tasks.
+
+    """
     __metaclass__ = TaskMeta
     n_items = 0
     n_acks = 0
@@ -42,14 +49,30 @@ class Task(object):
 
     @abstractproperty
     def task_type(self):
+        """
+        The type of task being defined. This type must be registered with TaskType before definition,
+        otherwise an exception will be thrown
+
+        :return: A TaskType instance
+        """
         pass
 
     @abstractproperty
     def endpoint(self):
+        """
+        A valid EndpointAddress used to push data to worker clients.
+
+        :return: An EndpointAddress instance
+        """
         pass
 
     @abstractproperty
     def dependencies(self):
+        """
+        Zero or more Tasks that must be executed in full before this task can begin processing.
+
+        :return: A list of Task instances
+        """
         return []
 
     def initialize(self, metadata={}):
@@ -64,10 +87,11 @@ class Task(object):
     def handle(self, data, address, msgtype):
         """
         Handle invocation by the distributor.
-        :param data: Meta data, if provided, otherwise an empty dictionary
-        :param address: The address of the worker data will be sent to.
-        :param msgtype: The message type received from the worker. Typically zmqpipeline.messages.MESSAGE_TYPE_READY
-        :return: A dictionary of data to be sent to the worker, or None, in which case the worker will receive no information
+
+        :param dict data: Meta data, if provided, otherwise an empty dictionary
+        :param EndpointAddress address: The address of the worker data will be sent to.
+        :param str msgtype: The message type received from the worker. Typically zmqpipeline.messages.MESSAGE_TYPE_READY
+        :return dict: A dictionary of data to be sent to the worker, or None, in which case the worker will receive no information
         """
         pass
 

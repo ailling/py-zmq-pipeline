@@ -8,10 +8,25 @@ import zmq
 
 
 class Distributor(object):
+    """
+    Responsible for distributing (pushing) tasks to workers. What gets distributed is determined
+    by Tasks, which are user-implementations that configure how the distributor works.
+
+    The pipeline pattern assumes there is only one distributor with one or more registered tasks.
+    """
     task_classes = {}
 
     def __init__(self, collector_endpoint, collector_ack_endpoint,
                  receive_metadata = False, metadata_endpoint = None):
+        """
+        Instantiate a distributor.
+
+        :param EndpointAddress collector_endpoint: The endpoint of the collector
+        :param EndpointAddress collector_ack_endpoint: The endpoint of the collector for receiving ACKs
+        :param bool receive_metadata: When true, the distributor will wait for meta data from a meta data worker before distributing tasks to clients
+        :param EndpointAddress metadata_endpoint: The endpoint from which to receive meta data from a meta data worker.
+        :return: A Distributor object
+        """
         self.context = zmq.Context()
         self.metadata = {}
 
@@ -114,6 +129,14 @@ class Distributor(object):
 
 
     def run(self):
+        """
+        Runs the distributor and blocks. Call this immediately after instantiating the distributor.
+
+        Since this method will block the calling program, it should be the last thing the calling code
+        does before exiting. Run() will automatically shutdown the distributor gracefully when finished.
+
+        :return: None
+        """
         print 'main loop running'
 
         while True:
@@ -172,6 +195,13 @@ class Distributor(object):
 
 
     def shutdown(self):
+        """
+        Shuts down the distributor. This is automatically called when run() is complete and the distributor
+        exits gracefully. Client code should only invoke this method directly on exiting prematurely,
+        for example on a KeyboardInterruptException
+
+        :return: None
+        """
         print 'sending END message to sink'
         self.sink.send(messages.create_end())
 

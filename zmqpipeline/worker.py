@@ -33,6 +33,10 @@ class WorkerMeta(ABCMeta):
 
 
 class Worker(object):
+    """
+    An abstract entity capable of doing work. This cannot be instantiated by client code.
+    Instead, subclass and instantiate SingleThreadedWorker and MultiThreadedWorker
+    """
     __metaclass__ = WorkerMeta
 
     @abstractproperty
@@ -87,10 +91,24 @@ class Worker(object):
 
 
 class MultiThreadedWorker(Worker):
+    """
+    A worker that processes data on multiple threads.
+
+    Threads are instantiated and pooled at initialization time to minimize the cost of context switching.
+
+    Morever, data is forwarded from the worker to each thread over the inproc protocol by default,
+    which is significantly faster than tcp or ipc.
+
+    """
     thread_endpoint = EndpointAddress('inproc://threadworker')
 
     @abstractproperty
     def n_threads(self):
+        """
+        The number of threads used.
+
+        :return int: A positive integer
+        """
         return 1
 
     def __init__(self, *args, **kwargs):
@@ -175,11 +193,15 @@ class MultiThreadedWorker(Worker):
     @abstractmethod
     def handle_execution(self, data, *args, **kwargs):
         """
-        Invoked in the worker's main loop. Override in client implementation
-        :param data:
-        :param args:
-        :param kwargs:
-        :return:
+        This method is invoked when the worker's main loop is executed. Client implementions
+        of this method should, unlike the SingleThreadedWorker, not process data but instead
+        forward the relevant data to the thread by returning a dictionary of information.
+
+        :param dict data: A dictionary of data received by the worker
+        :param args: Additional arguments
+        :param kwargs: Additional keyword arguments
+
+        :return dict: Data to be forwarded to the worker thread
         """
         return {}
 
@@ -187,15 +209,21 @@ class MultiThreadedWorker(Worker):
     @abstractmethod
     def handle_thread_execution(self, data, index):
         """
-        Invoked in worker's thread. Override in client implementation
-        :return:
+        This method is invoked in the working thread. This is where data processing should be
+        handled.
+
+        :param dict data: A dictionary of data provided by the worker
+        :param int index: The index number of the thread that's been invoked
+        :return dict: A dictionary of information to be forwarded to the collector
         """
         return {}
 
 
 
 class SingleThreadedWorker(Worker):
-
+    """
+    A worker that processes data on a single thread
+    """
     def main_loop(self):
         print 'worker - main loop running'
 
@@ -229,10 +257,12 @@ class SingleThreadedWorker(Worker):
     @abstractmethod
     def handle_execution(self, data, *args, **kwargs):
         """
-        Invoked in the worker's main loop. Override in client implementation
-        :param data: Data provided as a dictionary from the distributor
-        :param args:
-        :param kwargs:
+        Invoked in the worker's main loop whenever a task is received from the distributor.
+        This is where client implemntations should process data and forward results to the collector.
+
+        :param dict data: Data provided as a dictionary from the distributor
+        :param args: A list of additional positional arguments
+        :param kwargs: A list of additional keyword arguments
         :return: A dictionary of data to be passed to the collector, or None, in which case no data will be forwarded to the collector
         """
         return {}
@@ -241,7 +271,9 @@ class SingleThreadedWorker(Worker):
 
 class MetaDataWorker(object):
     """
-    Transmits algorithm meta information
+    Transmits meta information to the distributor for dynamic configuration at runtime.
+    When using a meta data worker, the Distributor should be instantiated with receive_metadata boolean
+    turned on.
     """
     __metaclass__ = ABCMeta
 
@@ -270,6 +302,10 @@ class MetaDataWorker(object):
 
 
     def run(self):
+        """
+        Runs the meta worker, sending meta data to the distributor.
+        :return:
+        """
         self.send_metadata()
 
 
