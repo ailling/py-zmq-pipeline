@@ -99,10 +99,6 @@ class Distributor(object):
 
         if data:
             self.metadata = data
-            for tt, task in self.tasks.items():
-                if hasattr(task, 'initialize'):
-                    logger.info('Initializing task type %s', task.task_type)
-                    task.initialize(metadata = self.metadata)
 
         logger.info('Meta data received - sending success response')
         self.metadata_client.send(messages.create_success())
@@ -182,6 +178,10 @@ class Distributor(object):
                         logger.debug('Initial signal for task %s from worker %s recieved', task_type, address)
                         self.worker_initialized[address] = True
                         task.received_init_signal = True
+
+                        if hasattr(task, 'initialize'):
+                            logger.info('Initializing task type %s', task.task_type)
+                            task.initialize(metadata = self.metadata)
 
                         logger.debug('Sending success reply to worker address: %s', address)
                         task.client.send_multipart([
