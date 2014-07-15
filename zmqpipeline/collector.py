@@ -73,7 +73,7 @@ class Collector(object):
         :param str task_type: The task type of the worker and corresponding task
         :param str msgtype: The message type. Typically zmqpipeline.messages.MESSAGE_TYPE_DATA
 
-        :return:
+        :return: None
         """
         pass
 
@@ -84,7 +84,7 @@ class Collector(object):
 
         :param dict data: Data received from the worker on a termination signal
         :param string task_type: The task type of the worker and correspond task
-        :return: None
+        :return dict: A dictionary of data to be sent to the distributor along with the ACK, or None to send nothing back to the distributor
         """
         pass
 

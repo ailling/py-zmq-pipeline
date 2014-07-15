@@ -1,9 +1,8 @@
 from zmqpipeline.task import Task
-from zmqpipeline import EndpointAddress, TaskType
-from factories.task import TaskFactory
+from zmqpipeline import TaskType
+from zmqpipeline.utils import messages
+from factories.task import TaskFactory, TASK_TYPE_MY_TASK, ENDPOINT_ADDRESS
 
-TASK_TYPE_MY_TASK = 'MYTASK'
-TaskType.register_type(TASK_TYPE_MY_TASK)
 
 def test_initialization():
     task = TaskFactory.build()
@@ -25,15 +24,18 @@ def test_registration():
     assert task in ls
 
 
-class MyTask(Task):
-    task_type = TaskType(TASK_TYPE_MY_TASK)
-    endpoint = EndpointAddress('ipc://worker.ipc')
-    dependencies = []
 
 def test_my_task():
-    my_task = MyTask()
+    my_task = TaskFactory.build()
     assert my_task.task_type == TaskType(TASK_TYPE_MY_TASK)
-    assert my_task.endpoint == EndpointAddress('ipc://worker.ipc')
+    assert my_task.endpoint == ENDPOINT_ADDRESS
     assert my_task.dependencies == []
 
+
+def test_task_handle():
+    task = TaskFactory.build()
+    data = {
+        'key': 'value'
+    }
+    assert task.handle(data, '', messages.MESSAGE_TYPE_DATA)
 

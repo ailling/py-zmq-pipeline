@@ -76,6 +76,7 @@ class Distributor(object):
         if receive_metadata:
             self.wait_for_metadata()
 
+
     @property
     def registered_task_classes(self):
         return self.task_classes.values()
