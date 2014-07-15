@@ -37,6 +37,9 @@ class Worker(object):
     """
     An abstract entity capable of doing work. This cannot be instantiated by client code.
     Instead, subclass and instantiate SingleThreadedWorker and MultiThreadedWorker
+
+    Both SingleThreadedWorker and MultiThreadedWorker inherit from Worker.
+    Note that MetaDataWorker does not inherit from Worker despite its name.
     """
     __metaclass__ = WorkerMeta
 
@@ -69,14 +72,21 @@ class Worker(object):
         self.worker_id = self.worker.getsockopt(zmq.IDENTITY)
         self.logger.info('Setting worker id: %s', self.worker_id)
 
+        self.metadata = {}
+
 
     def send_init_msg(self):
         self.logger.info('Sending init message to %s' % self.endpoint)
 
         self.worker.send(b'')
-        self.worker.recv_multipart()
+        msg = self.worker.recv()
+        data, _, msgtype = messages.get(msg)
+        assert msgtype == messages.MESSAGE_TYPE_META_DATA
 
+        self.metadata = data
         self.logger.info('Received init reply.')
+        if self.metadata:
+            self.logger.debug('Distributor has metadata: %s', self.metadata)
 
         initfn = getattr(self, 'init_worker', None)
         if initfn and callable(initfn):
@@ -95,8 +105,14 @@ class Worker(object):
         pass
 
     def init_worker(self):
-        pass
+        """
+        Optional implementation. When defined, this method is invoked after the worker
+        sends and receives confirmation (from the distributor) of its readiness.
 
+        Metadata will be stored on the worker at the time this method is executed.
+
+        """
+        pass
 
 
 class MultiThreadedWorker(Worker):

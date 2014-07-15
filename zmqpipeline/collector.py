@@ -62,7 +62,7 @@ class Collector(object):
         self.ack_sender.bind(helpers.endpoint_binding(self.ack_endpoint))
 
         self.ack_data = {}
-
+        self.metadata = {}
 
     @abstractmethod
     def handle_collection(self, data, task_type, msgtype):
@@ -106,6 +106,11 @@ class Collector(object):
                 logger.info('END message received')
                 self.handle_finished(data, task_type)
                 break
+
+            if msgtype == messages.MESSAGE_TYPE_META_DATA:
+                self.metadata = data
+                logger.info('Received metadata: %s', self.metadata)
+                continue
 
             self.ack_data = {}
             params = {

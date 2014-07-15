@@ -39,9 +39,9 @@ Additional features include:
         - workers can die and be restarted without interrupting overall workflow.
         - repeatedly sent tasks are not re-processed once acknowledged
     * Fast serialization
-        - uses msgpack_ for highly efficient, dense and flexible packing of information, allowing py-zmq-pipeline
-            to have a minimal footprint on the wire.
+        - uses msgpack_ for highly efficient, dense and flexible packing of information, allowing py-zmq-pipeline to have a minimal footprint on the wire.
     * Load-balanced
+    * Built in logging support for easier debugging
 
 .. _msgpack: http://msgpack.org/
 .. _examples: examples.html

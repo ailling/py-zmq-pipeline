@@ -103,6 +103,9 @@ class Distributor(object):
         logger.info('Meta data received - sending success response')
         self.metadata_client.send(messages.create_success())
 
+        logger.info('Sending meta data to collector')
+        self.sink.send(messages.create_metadata(self.metadata))
+
 
     def process_sink_ack(self):
         msg = self.sink_ack.recv()
@@ -185,14 +188,12 @@ class Distributor(object):
 
                         logger.debug('Sending success reply to worker address: %s', address)
                         task.client.send_multipart([
-                            address, b'', messages.create_success(task = task_type)
+                            address, b'', messages.create_metadata(self.metadata)
                         ])
 
                     else:
                         data, tt, msgtype = messages.get(msg)
                         data = data or {}
-                        if self.metadata:
-                            data.update(self.metadata)
 
                         if msgtype == messages.MESSAGE_TYPE_READY:
                             "invoke the registered function"

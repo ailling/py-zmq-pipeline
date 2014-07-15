@@ -1,4 +1,13 @@
 ===================================
+v: 0.1.7
+2014-07-15
+
+- Improved support for metadata handling, including:
+    - sending meta data to workers at initialization time
+    - sending meta data to the collector at initialization time
+- Meta data is never transmitted after initialization, decreasing overhead
+
+===================================
 v: 0.1.6
 2014-07-15
 

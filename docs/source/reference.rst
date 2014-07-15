@@ -23,19 +23,26 @@ Task
 
 
 Single-threaded Worker
-------
+----------------------
 
 .. autoclass:: zmqpipeline.SingleThreadedWorker
    :members:
 
 Multi-threaded Worker
-------
+--------------------
 
 .. autoclass:: zmqpipeline.MultiThreadedWorker
    :members:
 
-Meta data Worker
+Worker
 ------
+
+.. autoclass:: zmqpipeline.Worker
+   :members:
+
+
+Meta data Worker
+-----------------
 
 .. autoclass:: zmqpipeline.MetaDataWorker
    :members:
