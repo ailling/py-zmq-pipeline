@@ -76,6 +76,9 @@ class Distributor(object):
         if receive_metadata:
             self.wait_for_metadata()
 
+        # data received from collector
+        self.ack_data = {}
+
 
     @property
     def registered_task_classes(self):
@@ -112,7 +115,14 @@ class Distributor(object):
         data, tt, msgtype = messages.get(msg)
 
         self.tasks[tt].n_acks += 1
-        logger.debug('Received %d acks from task type %s', self.tasks[tt].n_acks, tt)
+        ack_id = data.get('_id', 0)
+
+        logger.debug('Received ACK ID %d - %d acks from task type %s', ack_id, self.tasks[tt].n_acks, tt)
+        # logger.info('Received ACK ID %d - %d acks from task type %s - msgtype: %s', ack_id, self.tasks[tt].n_acks, tt, msgtype)
+        if data:
+            self.ack_data = data
+        else:
+            self.ack_data = {}
 
 
     def register_task_instance(self, taskcls):
@@ -174,6 +184,11 @@ class Distributor(object):
 
                 if task.is_task_ready_for_initialization() or task.received_init_signal:
                     # task either needs to be initialized, or has been initialized and is ready for processing
+
+                    if task.received_init_signal and not task.is_available_for_handling(self.ack_data):
+                        # only consult the task about handling availability if the init signal has been received
+                        continue
+
                     address, empty, msg = task.client.recv_multipart()
                     self.add_client_address(task_type, address)
 
@@ -196,15 +211,15 @@ class Distributor(object):
                         data = data or {}
 
                         if msgtype == messages.MESSAGE_TYPE_READY:
-                            "invoke the registered function"
+                            # invoke registered task's handler
                             logger.debug('Invoking task.handle for task type: %s, client address %s - passing data: %s', task.task_type, address, data)
-                            sdata = task.handle(data, address, msgtype) or {}
+                            sdata = task.handle(data, address, msgtype, self.ack_data) or {}
                             if not isinstance(sdata, dict) and sdata is not None:
                                 raise TypeError('Task handler must return a dictionary or nothing')
 
                             sdata.update(data)
 
-                            logger.debug('Send to collector - task type: %s - data: %s', tt, sdata)
+                            logger.debug('Sending to collector - task type: %s - data: %s', tt, sdata)
                             task.client.send_multipart([
                                 address, b'', messages.create_data(tt, sdata)
                             ])

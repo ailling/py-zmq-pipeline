@@ -1,4 +1,12 @@
 ===================================
+v: 0.1.8
+7/18/2014
+
+- Support for ACK data to be sent back to the distributor
+- Functionality for a task to wait for last ACK from collector before executing
+- Better handling of task initialization
+
+===================================
 v: 0.1.7
 2014-07-15
 

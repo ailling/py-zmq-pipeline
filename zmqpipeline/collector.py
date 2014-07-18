@@ -60,9 +60,10 @@ class Collector(object):
         logger.info('Connecting to endpoint %s', self.ack_endpoint)
         self.ack_sender = self.context.socket(zmq.PUSH)
         self.ack_sender.bind(helpers.endpoint_binding(self.ack_endpoint))
-
-        self.ack_data = {}
         self.metadata = {}
+
+        self._ack_id_counter = 1
+
 
     @abstractmethod
     def handle_collection(self, data, task_type, msgtype):
@@ -88,6 +89,22 @@ class Collector(object):
         """
         pass
 
+    def get_ack_data(self):
+        """
+        Optionally override this method to attach data to the ACK that will be sent back to the distributor.
+
+        This method is typically used when deciding to override Task.is_available_for_handling(), since the data
+        received by the distributor will be forwarded to the Task via is_available_for_handling() for
+        determining whether the task can be executed or not.
+
+        The use case of implementing these methods in conjuction is for the task to wait on the receipt of a particular
+        ACK - that is, if the currently processing ACK requires data from a previously processed result.
+        These types of tasks are time and order-dependent.
+
+        :return: A dictionary of data
+        """
+        return {}
+
 
     def run(self):
         """
@@ -96,6 +113,7 @@ class Collector(object):
         :return: None
         """
         acks_sent = 0
+        ack_id_counter = 1
         logger.info('Collector is running (main loop procesing)')
 
         while True:
@@ -112,20 +130,26 @@ class Collector(object):
                 logger.info('Received metadata: %s', self.metadata)
                 continue
 
-            self.ack_data = {}
-            params = {
-                'data': data,
-                'task_type': task_type,
-                'msgtype': msgtype
+            logger.debug('Invoking handle_collection - task_type: %s msgtype: %s data: %s', task_type, msgtype, data)
+            sdata = self.handle_collection(data, task_type, msgtype)
+            if not sdata is None and not isinstance(sdata, dict):
+                raise TypeError('handle_collection must return a dictionary or none. See documentation')
+
+            ackdata = {
+                '_id': ack_id_counter,
+                '_task_type': task_type
             }
 
-            logger.debug('Invoking handle_collection with parameters: %s', params)
+            ad = self.get_ack_data()
+            if not isinstance(ad, dict):
+                raise TypeError('get_ack_data() must return a dictionary')
 
-            sdata = self.handle_collection(**params)
-            if sdata and isinstance(sdata, dict):
-                self.ack_data.update(sdata)
+            ackdata.update(ad)
+            if sdata:
+                ackdata.update(sdata)
 
-            logger.debug('Sending ACK %d to distributor with data: %s', acks_sent, self.ack_data)
-            self.ack_sender.send(messages.create_ack(task_type, self.ack_data))
+            logger.debug('Sending ACK %d to distributor with task type: %s and data: %s', ack_id_counter, task_type, ackdata)
+            self.ack_sender.send(messages.create_ack(task_type, ackdata))
             acks_sent += 1
+            ack_id_counter += 1
 

@@ -16,7 +16,7 @@ def unix_time(dt):
         raise Exception('unix_time: unacceptable type passed as argument')
 
 
-def decode_datetime(obj):
+def decoder(obj):
     if b'__datetime__' in obj:
         obj = datetime.utcfromtimestamp(obj['epochs'])
     elif b'__date__' in obj:
@@ -26,7 +26,7 @@ def decode_datetime(obj):
     return obj
 
 
-def encode_datetime(obj):
+def encoder(obj):
     if isinstance(obj, datetime):
         return {
             b'__datetime__': True,
@@ -44,11 +44,15 @@ def encode_datetime(obj):
             b'__timedelta__': True,
             b'epochs': unix_time(obj)
         }
+    if type(obj).__name__ == 'ObjectId':
+        return str(obj)
 
     return obj
 
+
 def serialize(data):
-    return msgpack.packb(data, default = encode_datetime)
+    return msgpack.packb(data, default = encoder)
 
 def deserialize(msg):
-    return msgpack.unpackb(msg, object_hook = decode_datetime)
+    return msgpack.unpackb(msg, object_hook = decoder)
+

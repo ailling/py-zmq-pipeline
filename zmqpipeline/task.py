@@ -46,6 +46,23 @@ class Task(object):
     metadata = {}
     task_instances = defaultdict(list)
 
+
+    def is_available_for_handling(self, last_ack_data):
+        """
+        Optionally override this if the task requires the ACK of a previously sent task.
+
+        If this method is overriden, get_ack_data() should be overrridden in your custom collector.
+        The default is to always assume the task is available to process the next task. This is the fastest
+        behavior, but also doesn't guarantee the last message sent by the task (and then the corresponding worker)
+        has been ACKed by the distributor.
+
+        :param dict last_ack_data: A dictionary of data received in the last ACK. All instances include _task_type and _id, a globally incrementing counter for the latest ACK.
+            This dictionary will include whatever you attach to get_ack_data() in the collector. If you override this method, you should override get_col
+        :return: True if the task is available for handling the next received message; false if otherwise
+        """
+        return True
+
+
     @classmethod
     def register_task_instance(cls, instance):
         cls.task_instances[instance.task_type].append(instance)
@@ -72,9 +89,9 @@ class Task(object):
     @abstractproperty
     def dependencies(self):
         """
-        Zero or more Tasks that must be executed in full before this task can begin processing.
+        Zero or more tasks, identified by task type, that must be executed in full before this task can begin processing.
 
-        :return: A list of Task instances
+        :return: A list of TaskType instances
         """
         return []
 
@@ -88,13 +105,14 @@ class Task(object):
         self.metadata = metadata
 
     @abstractmethod
-    def handle(self, data, address, msgtype):
+    def handle(self, data, address, msgtype, ack_data={}):
         """
         Handle invocation by the distributor.
 
         :param dict data: Meta data, if provided, otherwise an empty dictionary
         :param EndpointAddress address: The address of the worker data will be sent to.
         :param str msgtype: The message type received from the worker. Typically zmqpipeline.messages.MESSAGE_TYPE_READY
+        :param dict ack_data: Data received in the most recent ACK from collector
         :return dict: A dictionary of data to be sent to the worker, or None, in which case the worker will receive no information
         """
         pass
