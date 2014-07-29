@@ -8,6 +8,7 @@ MESSAGE_TYPE_END = 'END'
 MESSAGE_TYPE_DATA = 'DATA'
 MESSAGE_TYPE_META_DATA = 'METADATA'
 MESSAGE_TYPE_EMPTY = ''
+MESSAGE_TYPE_UNKNOWN = 'UNK'
 
 
 ALL_MESSAGE_TYPES = [
@@ -82,10 +83,13 @@ def get(msg):
     :param msg:
     :return:
     """
-    d = serializer.deserialize(msg)
-    return (
-        d.get('data', {}),
-        d.get('task', ''),
-        d.get('type', MESSAGE_TYPE_EMPTY),
-    )
+    try:
+        d = serializer.deserialize(msg)
+        return (
+            d.get('data', {}),
+            d.get('task', ''),
+            d.get('type', MESSAGE_TYPE_EMPTY),
+        )
+    except Exception:
+        return {}, '', MESSAGE_TYPE_UNKNOWN
 

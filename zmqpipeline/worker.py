@@ -348,3 +348,42 @@ class MetaDataWorker(object):
         """
         return {}
 
+
+class ServiceWorker(object):
+
+    def __init__(self):
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.REQ)
+        self.worker_id = zhelpers.set_id(self.socket, prefix='Worker')
+        self.socket.connect('tcp://localhost:15202')
+
+        self.initialized = False
+        self.init_sent = False
+
+
+    def run(self):
+
+        while True:
+            # TODO: refactor this for a two-step initialization sync with the router
+            if not self.initialized and not self.init_sent:
+                if not self.init_sent:
+                    self.socket.send(messages.create_ready())
+                    self.init_sent = True
+                else:
+                    pass
+
+                continue
+
+            addr, empty, msg = self.socket.recv_multipart()
+
+            data, task, tt = messages.get(msg)
+            if tt == messages.MESSAGE_TYPE_END:
+                print 'worker %s received END msg - breaking' % self.worker_id
+                break
+
+            print 'worker got data: ', data
+
+            self.socket.send_multipart([
+                addr, b'', messages.create_success(data)
+            ])
+

@@ -40,9 +40,10 @@ def dump(msg_or_socket):
 
 
 # Set simple random printable identity on socket
-def set_id(zsocket):
-    identity = "%04x-%04x" % (randint(0, 0x10000), randint(0, 0x10000))
+def set_id(zsocket, prefix=''):
+    identity = "%s%04x-%04x" % (prefix, randint(0, 0x10000), randint(0, 0x10000))
     zsocket.setsockopt(zmq.IDENTITY, identity)
+    return identity
 
 def zpipe(ctx):
     """build inproc pipe for talking to threads
