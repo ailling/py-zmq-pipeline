@@ -9,7 +9,6 @@ import zmq
 
 logger = logging.getLogger('zmqpipeline.service')
 
-N_CLIENTS = 10
 
 class Service(object):
     """
@@ -32,15 +31,12 @@ class Service(object):
         self.backend = self.context.socket(zmq.ROUTER)
         self.backend.bind(helpers.endpoint_binding(self.backend_endpoint))
 
-
         self.poller = zmq.Poller()
         self.poller.register(self.frontend, zmq.POLLIN)
         self.poller.register(self.backend, zmq.POLLIN)
 
         self.workers_list = []
         self.available_workers = 0
-
-        self.counter = N_CLIENTS
 
 
     def run(self):
@@ -113,22 +109,21 @@ class Service(object):
 
         :return: None
         """
-        raise NotImplementedError()
-        # logger.info('Shutting down collector and workers')
-        #
-        # logger.debug('Sending END signal to collector')
-        # self.sink.send(messages.create_end())
-        #
-        # for task_type, task in self.tasks.items():
-        #     client_addrs = self.client_addresses[task_type]
-        #     n_clients = len(client_addrs)
-        #
-        #     logger.debug('Shutting down %d clients for task type %s', n_clients, task_type)
-        #     for _ in client_addrs:
-        #         address, empty, msg = task.client.recv_multipart()
-        #
-        #         logger.debug('Sending END signal to worker address %s - task type %s', address, task_type)
-        #         task.client.send_multipart([
-        #             address, b'', messages.create_end(task = task_type)
-        #         ])
+        logger.info('Shutting down collector and workers')
+
+        logger.debug('Sending END signal to collector')
+        self.sink.send(messages.create_end())
+
+        for task_type, task in self.tasks.items():
+            client_addrs = self.client_addresses[task_type]
+            n_clients = len(client_addrs)
+
+            logger.debug('Shutting down %d clients for task type %s', n_clients, task_type)
+            for _ in client_addrs:
+                address, empty, msg = task.client.recv_multipart()
+
+                logger.debug('Sending END signal to worker address %s - task type %s', address, task_type)
+                task.client.send_multipart([
+                    address, b'', messages.create_end(task = task_type)
+                ])
 

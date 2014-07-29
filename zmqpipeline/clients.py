@@ -11,16 +11,15 @@ N_MESSAGES = 5
 
 class ServiceClient(object):
 
+    endpoint = EndpointAddress('tcp://localhost:15201')
+    id_prefix = 'client'
+
     def __init__(self):
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
-        self.client_id = zhelpers.set_id(self.socket, prefix='Client')
-        self.socket.connect('tcp://localhost:15201')
+        self.client_id = zhelpers.set_id(self.socket, prefix=self.id_prefix)
+        self.socket.connect(self.endpoint)
 
-        self.initialized = False
-        self.init_sent = False
-
-        self.counter = 0
 
     def run(self):
 
@@ -33,10 +32,6 @@ class ServiceClient(object):
 
             msg = messages.create_data('', data=req)
             self.socket.send(msg)
-
-            self.counter += 1
-            if self.counter > N_MESSAGES:
-                break
 
             reply = self.socket.recv()
             response, tt, msgtype = messages.get(reply)

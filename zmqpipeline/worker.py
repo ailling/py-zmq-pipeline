@@ -382,8 +382,10 @@ class ServiceWorker(object):
                 break
 
             print 'worker got data: ', data
+            data['message'] = data['message'].upper()
+            print 'worker returning data: %s' % str(data)
 
             self.socket.send_multipart([
-                addr, b'', messages.create_success(data)
+                addr, b'', messages.create_data('', data)
             ])
 
