@@ -12,14 +12,14 @@ from threading import Thread
 
 class WorkerMeta(ABCMeta):
     def __new__(cls, name, bases, dct):
-        if name not in ('Worker', 'MultiThreadedWorker', 'SingleThreadedWorker'):
-            if not isinstance(dct['task_type'], TaskType):
+        if name not in ('Worker', 'MultiThreadedWorker', 'SingleThreadedWorker', 'ServiceWorker'):
+            if 'task_type' in dct and not isinstance(dct['task_type'], TaskType):
                 raise TypeError('task_type is required to be a TaskType enumerated value')
 
-            if not isinstance(dct['endpoint'], EndpointAddress):
+            if 'endpoint' in dct and not isinstance(dct['endpoint'], EndpointAddress):
                 raise TypeError('endpoint is required to be an EndpointAddress object')
 
-            if not isinstance(dct['collector_endpoint'], EndpointAddress):
+            if 'collector_endpoint' in dct and not isinstance(dct['collector_endpoint'], EndpointAddress):
                 raise TypeError('collector_endpoint is requiredto be an EndpointAddress object')
 
             slots = []
@@ -30,6 +30,7 @@ class WorkerMeta(ABCMeta):
                 dct['__slots__'] = slots
 
         return super(WorkerMeta, cls).__new__(cls, name, bases, dct)
+
 
 
 
@@ -349,43 +350,86 @@ class MetaDataWorker(object):
         return {}
 
 
-class ServiceWorker(object):
 
-    def __init__(self):
+class ServiceWorker(object):
+    """
+    A worker that plugs into a service. Regular workers plug into a distributor / collector pair
+    """
+    __metaclass__ = WorkerMeta
+
+    @abstractproperty
+    def task_type(self):
+        """
+        A registered task type, or a blank string.
+
+        :return TaskType: A properly registered task type or an empty string
+        """
+        return ''
+
+
+    @abstractproperty
+    def endpoint(self):
+        """
+        The address of the broker's backend
+
+        :return EndpointAddress: A valid EndpointAddress instance
+        """
+        return ''
+
+    def __init__(self, id_prefix='worker'):
+        self.logger = logging.getLogger('zmqpipeline.serviceworker')
+
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
-        self.worker_id = zhelpers.set_id(self.socket, prefix='Worker')
-        self.socket.connect('tcp://localhost:15202')
+        self.worker_id = zhelpers.set_id(self.socket, prefix = id_prefix)
 
-        self.initialized = False
+        self.logger.info('Worker %s connecting to endpoint %s', self.worker_id, self.endpoint)
+        self.socket.connect(self.endpoint)
+
         self.init_sent = False
 
 
+    @abstractmethod
+    def handle_message(self, data, task_type, msgtype):
+        """
+        Overridden by subclassed ServiceWorkers.
+
+        :param data: Data the client has submitted for processing, typically in a dictionary
+        :param TaskType task_type: A registered TaskType enumerated value
+        :param str msgtype: A message type enumerated value
+        :return: Data to be sent back to the requesting client, typically a dictionary
+        """
+        pass
+
+
     def run(self):
+        """
+        Run the service worker. This call blocks until an END message is received from the broker
+
+        :return: None
+        """
 
         while True:
-            # TODO: refactor this for a two-step initialization sync with the router
-            if not self.initialized and not self.init_sent:
-                if not self.init_sent:
-                    self.socket.send(messages.create_ready())
-                    self.init_sent = True
-                else:
-                    pass
-
+            if not self.init_sent:
+                self.logger.debug('Worker %s sending initialization signal', self.worker_id)
+                self.socket.send(messages.create_ready(task = self.task_type))
+                self.init_sent = True
                 continue
 
             addr, empty, msg = self.socket.recv_multipart()
 
-            data, task, tt = messages.get(msg)
-            if tt == messages.MESSAGE_TYPE_END:
-                print 'worker %s received END msg - breaking' % self.worker_id
+            data, tt, msgtype = messages.get(msg)
+            self.logger.debug('Service worker %s received task type: %s, message type: %s, data: %s', self.worker_id, tt, msgtype, str(data))
+
+            if msgtype == messages.MESSAGE_TYPE_END:
+                self.logger.info('Worker %s received END message', self.worker_id)
                 break
 
-            print 'worker got data: ', data
-            data['message'] = data['message'].upper()
-            print 'worker returning data: %s' % str(data)
+            # invoke client implementation
+            retdata = self.handle_message(data, tt, msgtype)
+            self.logger.debug('Service worker %s responding to %s with data: %s', self.worker_id, addr, str(retdata))
 
             self.socket.send_multipart([
-                addr, b'', messages.create_data('', data)
+                addr, b'', messages.create_data(tt, retdata)
             ])
 

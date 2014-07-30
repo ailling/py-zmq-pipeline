@@ -1,7 +1,6 @@
 ##################################################
 # PUT ZMQPIPELINE LIBRARY ON SYSTEM PATH
 ##################################################
-
 import os, sys
 
 app_path = os.path.dirname(os.path.abspath(__file__))
@@ -15,8 +14,6 @@ if root_path not in sys.path:
 ##################################################
 # APP SETTINGS
 ##################################################
-
-
 import zmqpipeline
 
 TASK_TYPE_MY_TASK = 'MYTSK'

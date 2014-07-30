@@ -9,6 +9,7 @@ MESSAGE_TYPE_DATA = 'DATA'
 MESSAGE_TYPE_META_DATA = 'METADATA'
 MESSAGE_TYPE_EMPTY = ''
 MESSAGE_TYPE_UNKNOWN = 'UNK'
+MESSAGE_TYPE_ROUTING = 'RTE'
 
 
 ALL_MESSAGE_TYPES = [
@@ -75,6 +76,8 @@ def create_ready(task = '', data=''):
 def create_end(task = '', data=''):
     return _create_type(MESSAGE_TYPE_END, task, data)
 
+def create_routing(task = '', data = ''):
+    return _create_type(MESSAGE_TYPE_ROUTING, task, data)
 
 
 def get(msg):
