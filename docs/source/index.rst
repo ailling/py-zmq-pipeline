@@ -15,10 +15,10 @@ while keeping all the performance advantages the framework offers.
 .. _Python: https://www.python.org/
 
 Contents
-------
+------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    installation
    overview

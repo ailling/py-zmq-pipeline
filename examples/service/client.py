@@ -1,6 +1,5 @@
 import settings
-from zmqpipeline.clients import ServiceClient
-from zmqpipeline import TaskType
+from zmqpipeline import TaskType, ServiceClient
 
 
 N_REQUESTS = 10

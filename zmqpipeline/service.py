@@ -67,6 +67,8 @@ class Service(object):
 
             if self.backend in socks and socks[self.backend] == zmq.POLLIN:
 
+                # TODO: collect responses in fragments, issue response to the frontend when complete
+
                 worker_addr = self.backend.recv()
 
                 # the empty frame
@@ -86,6 +88,7 @@ class Service(object):
                     self.backend.recv()
 
                     msg = self.backend.recv()
+
                     logger.debug('Routing RESPONSE from worker %s to client %s', worker_addr, client_addr)
 
                     self.frontend.send_multipart([
@@ -99,28 +102,30 @@ class Service(object):
                 if self.frontend in socks and socks[self.frontend] == zmq.POLLIN:
 
                     client_addr, empty, msg = self.frontend.recv_multipart()
-                    _, tt, _= messages.get(msg)
+                    data, tt, msgtype = messages.get(msg)
+                    routing_data = messages.create_routing(task = tt, data = {
+                        'address': client_addr
+                    })
+
+                    assert msgtype == messages.MESSAGE_TYPE_DATA
+                    assert tt in self.workers_list
 
                     self.available_workers -= 1
-
                     logger.debug('Routing task type: %s', tt)
                     logger.debug('Workers list keys: %s', str(self.workers_list.keys()))
 
-                    assert tt in self.workers_list
                     worker_id = self.workers_list[tt].pop()
 
                     logger.debug('Routing REQUEST from client %s to worker %s', client_addr, worker_id)
 
-                    routing_data = messages.create_routing(task = tt, data = {
-                        'address': client_addr
-                    })
                     self.backend.send_multipart([
                         worker_id, b'', routing_data, b'', msg
                     ])
 
 
         # shutdown workers
-        # self.shutdown()
+        self.shutdown()
+
 
 
     def shutdown(self):
@@ -131,22 +136,18 @@ class Service(object):
 
         :return: None
         """
-        raise NotImplementedError()
-        # logger.info('Shutting down collector and workers')
-        #
-        # logger.debug('Sending END signal to collector')
-        # self.sink.send(messages.create_end())
-        #
-        # for task_type, task in self.tasks.items():
-        #     client_addrs = self.client_addresses[task_type]
-        #     n_clients = len(client_addrs)
-        #
-        #     logger.debug('Shutting down %d clients for task type %s', n_clients, task_type)
-        #     for _ in client_addrs:
-        #         address, empty, msg = task.client.recv_multipart()
-        #
-        #         logger.debug('Sending END signal to worker address %s - task type %s', address, task_type)
-        #         task.client.send_multipart([
-        #             address, b'', messages.create_end(task = task_type)
-        #         ])
+        all_workers = []
+        for tt, workers in self.workers_list.items():
+            for w in workers:
+                all_workers.append(w)
+
+        all_workers = set(all_workers)
+        logger.info('Shutting down %d workers', len(all_workers))
+
+        for worker_id in all_workers:
+            logger.debug('Shutting down worker id %s', worker_id)
+
+            self.backend.send_multipart([
+                worker_id, b'', b'', b'', messages.create_end()
+            ])
 

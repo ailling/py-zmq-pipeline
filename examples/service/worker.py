@@ -1,6 +1,5 @@
 import settings
-from zmqpipeline.worker import ServiceWorker
-from zmqpipeline import TaskType, EndpointAddress
+from zmqpipeline import TaskType, EndpointAddress, ServiceWorker
 
 
 class MyWorker(ServiceWorker):

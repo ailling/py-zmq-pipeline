@@ -1,6 +1,5 @@
 import settings
-from zmqpipeline.service import Service
-from zmqpipeline import EndpointAddress
+from zmqpipeline import EndpointAddress, Service
 
 
 
