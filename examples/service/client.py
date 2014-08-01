@@ -2,7 +2,7 @@ import settings
 from zmqpipeline import TaskType, ServiceClient
 
 
-N_REQUESTS = 10
+N_REQUESTS = 2
 
 if __name__ == '__main__':
     client = ServiceClient(settings.FRONTENT_ENDPOINT, task_type = TaskType(settings.TASK_TYPE_MY_TASK))
@@ -13,6 +13,16 @@ if __name__ == '__main__':
             'message': 'hello'
         })
         print 'client received reply: %s' % str(reply)
+
+
+    # ls = [{
+    #     'message': 'hello 1',
+    # }, {
+    #     'message': 'hello 2'
+    # }]
+    #
+    # reply = client.request(ls)
+    # print 'received reply: ', reply
 
     print 'finished'
 

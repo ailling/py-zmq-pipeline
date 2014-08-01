@@ -408,7 +408,6 @@ class ServiceWorker(object):
 
         :return: None
         """
-
         while True:
             if not self.init_sent:
                 self.logger.debug('Worker %s sending initialization signal', self.worker_id)

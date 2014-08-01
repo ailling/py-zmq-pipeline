@@ -47,6 +47,9 @@ class Service(object):
         self.workers_list = defaultdict(list)
         self.available_workers = 0
 
+        self.queued_requests = []
+        self.queued_responses = []
+
 
     def run(self):
         """
@@ -68,7 +71,6 @@ class Service(object):
             if self.backend in socks and socks[self.backend] == zmq.POLLIN:
 
                 # TODO: collect responses in fragments, issue response to the frontend when complete
-
                 worker_addr = self.backend.recv()
 
                 # the empty frame
@@ -79,18 +81,35 @@ class Service(object):
                 self.available_workers += 1
                 self.workers_list[tt].append(worker_addr)
 
+
                 logger.debug('Received message from worker id: %s - tt: %s - msgtype: %s', worker_addr, tt, msgtype)
+
+                # if msgtype == messages.MESSAGE_TYPE_DATA:
+                #     self.queued_responses.append(data)
 
                 if msgtype == messages.MESSAGE_TYPE_ROUTING:
                     assert 'address' in data
                     client_addr = data['address']
 
+                    # empty address
                     self.backend.recv()
-
+                    # get the message
                     msg = self.backend.recv()
+                    data, tt, msgtype = messages.get(msg)
+
+                    self.queued_responses.append(data)
 
                     logger.debug('Routing RESPONSE from worker %s to client %s', worker_addr, client_addr)
 
+                    # TODO: make this code flexible
+
+                    # this is for BATCHED requests (2 = batch size in this case)
+                    # if len(self.queued_responses) == 2:
+                    #     self.frontend.send_multipart([
+                    #         client_addr, b'', messages.create_data(tt, self.queued_responses)
+                    #     ])
+
+                    # this is for SINGLE requests
                     self.frontend.send_multipart([
                         client_addr, b'', msg
                     ])
@@ -98,6 +117,9 @@ class Service(object):
 
             logger.debug('Workers available: %d', self.available_workers)
             if self.available_workers > 0:
+                if self.queued_requests:
+                    request = self.queued_requests.pop()
+                    self.backend.send_multipart(request)
 
                 if self.frontend in socks and socks[self.frontend] == zmq.POLLIN:
 
@@ -116,11 +138,24 @@ class Service(object):
 
                     worker_id = self.workers_list[tt].pop()
 
-                    logger.debug('Routing REQUEST from client %s to worker %s', client_addr, worker_id)
+                    if isinstance(data, list):
+                        # self.backend.send_multipart([
+                        #     worker_id, b'', routing_data, b'', data[0]
+                        # ])
+                        self.backend.send_multipart([
+                            worker_id, b'', routing_data, b'', messages.create_data(tt, data[0])
+                        ])
 
-                    self.backend.send_multipart([
-                        worker_id, b'', routing_data, b'', msg
-                    ])
+                        for item in data[1:]:
+                            self.queued_requests.append([
+                                worker_id, b'', routing_data, b'', messages.create_data(tt, item)
+                            ])
+
+                    else:
+                        logger.debug('Routing REQUEST from client %s to worker %s', client_addr, worker_id)
+                        self.backend.send_multipart([
+                            worker_id, b'', routing_data, b'', msg
+                        ])
 
 
         # shutdown workers
