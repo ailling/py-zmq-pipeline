@@ -81,11 +81,7 @@ class Service(object):
                 self.available_workers += 1
                 self.workers_list[tt].append(worker_addr)
 
-
                 logger.debug('Received message from worker id: %s - tt: %s - msgtype: %s', worker_addr, tt, msgtype)
-
-                # if msgtype == messages.MESSAGE_TYPE_DATA:
-                #     self.queued_responses.append(data)
 
                 if msgtype == messages.MESSAGE_TYPE_ROUTING:
                     assert 'address' in data
@@ -104,15 +100,15 @@ class Service(object):
                     # TODO: make this code flexible
 
                     # this is for BATCHED requests (2 = batch size in this case)
-                    # if len(self.queued_responses) == 2:
-                    #     self.frontend.send_multipart([
-                    #         client_addr, b'', messages.create_data(tt, self.queued_responses)
-                    #     ])
+                    if len(self.queued_responses) == 10:
+                        self.frontend.send_multipart([
+                            client_addr, b'', messages.create_data(tt, self.queued_responses)
+                        ])
 
                     # this is for SINGLE requests
-                    self.frontend.send_multipart([
-                        client_addr, b'', msg
-                    ])
+                    # self.frontend.send_multipart([
+                    #     client_addr, b'', msg
+                    # ])
 
 
             logger.debug('Workers available: %d', self.available_workers)
@@ -136,22 +132,28 @@ class Service(object):
                     logger.debug('Routing task type: %s', tt)
                     logger.debug('Workers list keys: %s', str(self.workers_list.keys()))
 
-                    worker_id = self.workers_list[tt].pop()
-
                     if isinstance(data, list):
-                        # self.backend.send_multipart([
-                        #     worker_id, b'', routing_data, b'', data[0]
-                        # ])
+                        # round-robin selection of workers
+                        index = 0
+                        worker_id = self.workers_list[tt][index]
+
                         self.backend.send_multipart([
                             worker_id, b'', routing_data, b'', messages.create_data(tt, data[0])
                         ])
 
                         for item in data[1:]:
+                            index += 1
+                            if index % len(self.workers_list[tt]) == 0:
+                                index = 0
+
+                            worker_id = self.workers_list[tt][index]
                             self.queued_requests.append([
                                 worker_id, b'', routing_data, b'', messages.create_data(tt, item)
                             ])
 
                     else:
+                        worker_id = self.workers_list[tt].pop()
+
                         logger.debug('Routing REQUEST from client %s to worker %s', client_addr, worker_id)
                         self.backend.send_multipart([
                             worker_id, b'', routing_data, b'', msg
