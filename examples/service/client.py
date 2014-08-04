@@ -2,7 +2,7 @@ import settings
 from zmqpipeline import TaskType, ServiceClient
 
 
-N_REQUESTS = 10
+N_REQUESTS = 5
 
 if __name__ == '__main__':
     client = ServiceClient(settings.FRONTENT_ENDPOINT, task_type = TaskType(settings.TASK_TYPE_MY_TASK))
