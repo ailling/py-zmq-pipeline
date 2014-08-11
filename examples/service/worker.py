@@ -1,5 +1,6 @@
 import settings
 from zmqpipeline import TaskType, EndpointAddress, ServiceWorker
+import time
 
 
 class MyWorker(ServiceWorker):
@@ -17,6 +18,7 @@ class MyWorker(ServiceWorker):
         :return:
         """
         data['message'] = data['message'].upper()
+        time.sleep(.01)
         return data
 
 

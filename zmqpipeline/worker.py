@@ -376,15 +376,21 @@ class ServiceWorker(object):
         """
         return ''
 
+
     def __init__(self, id_prefix='worker'):
         self.logger = logging.getLogger('zmqpipeline.serviceworker')
 
         self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.REQ)
+        # self.socket = self.context.socket(zmq.REQ)
+        self.init_socket = self.context.socket(zmq.REQ)
+        self.socket = self.context.socket(zmq.PULL)
+        self.ack_socket = self.context.socket(zmq.PUSH)
         self.worker_id = zhelpers.set_id(self.socket, prefix = id_prefix)
 
         self.logger.info('Worker %s connecting to endpoint %s', self.worker_id, self.endpoint)
         self.socket.connect(self.endpoint)
+        self.init_socket.connect('tcp://localhost:16001')
+        self.ack_socket.connect('tcp://localhost:16002')
 
         self.init_sent = False
 
@@ -408,12 +414,34 @@ class ServiceWorker(object):
 
         :return: None
         """
+        import time
+
         while True:
             if not self.init_sent:
                 self.logger.debug('Worker %s sending initialization signal', self.worker_id)
-                self.socket.send(messages.create_ready(task = self.task_type))
+                self.init_socket.send(messages.create_ready(task = self.task_type))
                 self.init_sent = True
                 continue
+
+            print 'waiting for message from socket'
+            addr, empty, routingmsg, empty, datamsg = self.socket.recv_multipart()
+
+            routing_data, _, _ = messages.get(routingmsg)
+            data, tt, msgtype = messages.get(datamsg)
+
+            # TODO: process response
+            response = {}
+            time.sleep(.01)
+
+            print 'sending ACK'
+            self.ack_socket.send(messages.create_ack(data = {
+                # 'data': data,
+                'response': response,
+                'routing_data': routing_data
+            }))
+
+            continue
+
 
             addr, empty, msg = self.socket.recv_multipart()
 
@@ -428,7 +456,7 @@ class ServiceWorker(object):
             retdata = self.handle_message(data, tt, msgtype)
             self.logger.debug('Service worker %s responding to %s with data: %s', self.worker_id, addr, str(retdata))
 
-            self.socket.send_multipart([
-                addr, b'', messages.create_data(tt, retdata)
-            ])
+            # self.socket.send_multipart([
+            #     addr, b'', messages.create_data(tt, retdata)
+            # ])
 

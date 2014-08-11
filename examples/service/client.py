@@ -1,10 +1,13 @@
 import settings
 from zmqpipeline import TaskType, ServiceClient
+import time
 
 
-N_REQUESTS = 5
+N_REQUESTS = 3500
 
 if __name__ == '__main__':
+    start = time.time()
+
     client = ServiceClient(settings.FRONTENT_ENDPOINT, task_type = TaskType(settings.TASK_TYPE_MY_TASK))
 
     # for i in range(N_REQUESTS):
@@ -24,5 +27,6 @@ if __name__ == '__main__':
     reply = client.request(ls)
     print 'received reply: ', reply
 
-    print 'finished'
+    diff = time.time() - start
+    print 'finished - took %.2f seconds' % diff
 

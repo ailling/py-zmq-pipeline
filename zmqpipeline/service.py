@@ -7,6 +7,7 @@ import helpers
 from descriptors import EndpointAddress
 import zmq
 import uuid
+import pdb
 
 
 logger = logging.getLogger('zmqpipeline.service')
@@ -39,23 +40,32 @@ class Service(object):
         self.frontend = self.context.socket(zmq.ROUTER)
         self.frontend.bind(helpers.endpoint_binding(self.frontend_endpoint))
 
-        self.backend = self.context.socket(zmq.ROUTER)
+        self.backend = self.context.socket(zmq.PUSH)
         self.backend.bind(helpers.endpoint_binding(self.backend_endpoint))
 
+        self.init_socket = self.context.socket(zmq.ROUTER)
+        self.init_socket.bind(helpers.endpoint_binding('tcp://localhost:16001'))
+
+        self.ack_socket = self.context.socket(zmq.PULL)
+        self.ack_socket.bind(helpers.endpoint_binding('tcp://localhost:16002'))
+
         self.poller = zmq.Poller()
+        self.poller.register(self.ack_socket, zmq.POLLIN)
+        self.poller.register(self.init_socket, zmq.POLLIN)
         self.poller.register(self.frontend, zmq.POLLIN)
         self.poller.register(self.backend, zmq.POLLIN)
 
         self.workers_list = defaultdict(list)
         self.available_workers = 0
 
-        # self.queued_requests = []
-        # self.queued_responses = []
-
         # keyed on a UUID corresponding to the incoming request
         # value - list of multipart messages (which are lists)
         self.queued_requests = {}
-        self.sent_requests = defaultdict(list)
+        self.processing_requests = defaultdict(list)
+
+        # keyed on request id, valued on the number of requests
+        self.n_requests = {}
+        self.n_acks = {}
 
         # keyed on a UUID corresponding to the matching request
         # value: list of responses received from the worker
@@ -67,42 +77,88 @@ class Service(object):
 
 
     def send_request_to_backend(self):
+        """
+        Sends a queued request to the backend if one exists
+        :return: True if a task was sent, false otherwise (no task is waiting to be sent)
+        """
         for request_id, requests in self.queued_requests.items():
             if requests:
                 request = requests.pop()
-                self.sent_requests[request_id].append(request)
-                self.backend.send_multipart(request)
+                self.processing_requests[request_id].append(request)
+                # self.backend.send_multipart(request)
+
+                tt = request['task_type']
+                index = self.task_type_index[tt]
+                worker_id = self.workers_list[tt][index]
+
+                self.backend.send_multipart([
+                    worker_id, b'', request['routing_data'], b'', request['data']
+                ])
+
+                index += 1
+                if index % len(self.workers_list[request['task_type']]) == 0:
+                    index = 0
+                self.task_type_index[tt] = index
+
                 return True
 
         return False
 
 
+    # def send_all_requests_to_backend(self):
+    #     raise NotImplementedError()
+    #     for request_id, requests in self.queued_requests.items():
+    #         while len(requests) > 0:
+    #             request = requests.pop()
+    #             self.backend.send_multipart(request)
+
+
     def queue_request(self, request_id, tt, data, routing_data):
-        index = self.task_type_index[tt]
+        """
+        Queues requests to be sent without assigning a worker (done later to distribute work to newly arriving workers)
+        """
+        # index = self.task_type_index[tt]
+        self.n_acks[request_id] = 0
 
         if isinstance(data, list):
+            self.n_requests[request_id] = len(data)
+
             # round-robin selection of workers
             for item in data:
-                worker_id = self.workers_list[tt][index]
-                self.queued_requests[request_id].append([
-                    worker_id, b'', routing_data, b'', messages.create_data(tt, item)
-                ])
+                # worker_id = self.workers_list[tt][index]
+                # self.queued_requests[request_id].append([
+                #     worker_id, b'', routing_data, b'', messages.create_data(tt, item)
+                # ])
 
-                index += 1
-                if index % len(self.workers_list[tt]) == 0:
-                    index = 0
-                self.task_type_index[tt] = index
+                self.queued_requests[request_id].append({
+                    'routing_data': routing_data,
+                    'data': messages.create_data(tt, item),
+                    'task_type': tt
+                })
+
+                # index += 1
+                # if index % len(self.workers_list[tt]) == 0:
+                #     index = 0
+                # self.task_type_index[tt] = index
 
         else:
-            index += 1
-            if index % len(self.workers_list[tt]) == 0:
-                index = 0
-            self.task_type_index[tt] = index
+            self.n_requests[request_id] = 1
 
-            worker_id = self.workers_list[tt][index]
-            self.queued_requests[request_id].append([
-                worker_id, b'', routing_data, b'', data
-            ])
+            # index += 1
+            # if index % len(self.workers_list[tt]) == 0:
+            #     index = 0
+            # self.task_type_index[tt] = index
+
+            # worker_id = self.workers_list[tt][index]
+            # self.queued_requests[request_id].append([
+            #     worker_id, b'', routing_data, b'', data
+            # ])
+
+            self.queued_requests[request_id].append({
+                'routing_data': routing_data,
+                'data': data,
+                'task_type': tt
+            })
 
 
 
@@ -123,7 +179,47 @@ class Service(object):
             except KeyboardInterrupt:
                 break
 
+            if self.ack_socket in socks and socks[self.ack_socket] == zmq.POLLIN:
+
+                msg = self.ack_socket.recv()
+                data, tt, msgtype = messages.get(msg)
+                routing_data = data['routing_data']
+                request_id = routing_data['request_id']
+
+                response = data['response']
+
+                # addr, empty, msg = self.ack_socket.recv_multipart()
+                # data = messages.get(msg)
+                # request_id = data['request_id']
+
+                self.n_acks[request_id] += 1
+                self.queued_responses[request_id].append(response)
+                print 'received ACK from worker - n: %d' % self.n_acks[request_id]
+
+                if self.n_acks[request_id] == self.n_requests[request_id]:
+                    # all requests have finished processing, send message to the client
+                    self.frontend.send_multipart([
+                        client_addr, b'', messages.create_success()
+                    ])
+                else:
+                    self.send_request_to_backend()
+
+
+            if self.init_socket in socks and socks[self.init_socket] == zmq.POLLIN:
+
+                worker_addr = self.init_socket.recv()
+
+                # the empty frame
+                self.init_socket.recv()
+
+                clientmsg = self.init_socket.recv()
+                data, tt, msgtype = messages.get(clientmsg)
+                self.available_workers += 1
+                self.workers_list[tt].append(worker_addr)
+
+
             if self.backend in socks and socks[self.backend] == zmq.POLLIN:
+                raise NotImplementedError()
 
                 # TODO: collect responses in fragments, issue response to the frontend when complete
                 worker_addr = self.backend.recv()
@@ -145,33 +241,33 @@ class Service(object):
 
                     # empty address
                     self.backend.recv()
+
                     # get the message
                     msg = self.backend.recv()
                     data, tt, msgtype = messages.get(msg)
 
                     logger.debug('Routing RESPONSE from worker %s to client %s', worker_addr, client_addr)
-
                     self.queued_responses[request_id].append(data)
 
-                    if len(self.queued_responses[request_id]) == len(self.sent_requests[request_id]):
-                        # TODO: clear the queued requests and responses as well
+                    logger.debug('*** N requests: %d responses: %d', self.n_requests[request_id], len(self.queued_responses[request_id]))
+                    if len(self.queued_responses[request_id]) == self.n_requests[request_id]:
+                        # TODO: clear the queued requests and responses
                         self.frontend.send_multipart([
                             client_addr, b'', messages.create_data(tt, self.queued_responses[request_id])
                         ])
 
 
-
-            logger.debug('Workers available: %d', self.available_workers)
+            # logger.debug('Workers available: %d', self.available_workers)
             if self.available_workers > 0:
-
-                request_sent = self.send_request_to_backend()
 
                 if self.frontend in socks and socks[self.frontend] == zmq.POLLIN:
 
                     request_id = str(uuid.uuid1())
                     self.queued_requests[request_id] = []
                     self.queued_responses[request_id] = []
-                    self.sent_requests[request_id] = []
+                    self.processing_requests[request_id] = []
+                    self.n_acks[request_id] = 0
+                    self.n_requests[request_id] = 0
 
                     client_addr, empty, msg = self.frontend.recv_multipart()
                     data, tt, msgtype = messages.get(msg)
@@ -185,16 +281,14 @@ class Service(object):
                     assert msgtype == messages.MESSAGE_TYPE_DATA
                     assert tt in self.workers_list
 
-
                     self.available_workers -= 1
                     logger.debug('Routing task type: %s', tt)
                     logger.debug('Workers list keys: %s', str(self.workers_list.keys()))
 
                     self.queue_request(request_id, tt, data, routing_data)
 
-                    if not request_sent:
-                        self.send_request_to_backend()
-
+                    # self.send_all_requests_to_backend()
+                self.send_request_to_backend()
 
         # shutdown workers
         self.shutdown()
