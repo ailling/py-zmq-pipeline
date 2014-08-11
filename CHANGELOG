@@ -1,4 +1,11 @@
 ===================================
+v: 0.2.2
+7/29/2014
+
+- Refactored services
+- in progress: preserving order of responses to match order of requests
+
+===================================
 v: 0.2.1
 7/29/2014
 

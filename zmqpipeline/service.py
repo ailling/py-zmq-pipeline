@@ -199,7 +199,7 @@ class Service(object):
                 if self.n_acks[request_id] == self.n_requests[request_id]:
                     # all requests have finished processing, send message to the client
                     self.frontend.send_multipart([
-                        client_addr, b'', messages.create_success()
+                        client_addr, b'', messages.create_success(tt, self.queued_responses)
                     ])
                 else:
                     self.send_request_to_backend()

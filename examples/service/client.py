@@ -3,7 +3,7 @@ from zmqpipeline import TaskType, ServiceClient
 import time
 
 
-N_REQUESTS = 3500
+N_REQUESTS = 10
 
 if __name__ == '__main__':
     start = time.time()

@@ -417,6 +417,7 @@ class ServiceWorker(object):
         import time
 
         while True:
+
             if not self.init_sent:
                 self.logger.debug('Worker %s sending initialization signal', self.worker_id)
                 self.init_socket.send(messages.create_ready(task = self.task_type))
@@ -430,8 +431,7 @@ class ServiceWorker(object):
             data, tt, msgtype = messages.get(datamsg)
 
             # TODO: process response
-            response = {}
-            time.sleep(.01)
+            response = self.handle_message(data, tt, msgtype)
 
             print 'sending ACK'
             self.ack_socket.send(messages.create_ack(data = {
