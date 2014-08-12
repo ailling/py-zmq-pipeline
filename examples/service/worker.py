@@ -1,6 +1,7 @@
 import settings
 from zmqpipeline import TaskType, EndpointAddress, ServiceWorker
 import time
+import pdb
 
 
 class MyWorker(ServiceWorker):

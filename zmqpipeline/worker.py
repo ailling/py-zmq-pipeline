@@ -431,19 +431,18 @@ class ServiceWorker(object):
             data, tt, msgtype = messages.get(datamsg)
 
             # TODO: process response
+            task_index = data.pop('task_index')
             response = self.handle_message(data, tt, msgtype)
 
             print 'sending ACK'
             self.ack_socket.send(messages.create_ack(data = {
-                # 'data': data,
+                'task_index': task_index,
                 'response': response,
                 'routing_data': routing_data
             }))
 
 
             # continue
-            #
-            #
             # addr, empty, msg = self.socket.recv_multipart()
             #
             # data, tt, msgtype = messages.get(msg)

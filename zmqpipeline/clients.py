@@ -67,8 +67,8 @@ class ServiceClient(object):
         reply = self.socket.recv()
 
         response, tt, msgtype = messages.get(reply)
-        logger.debug('Client %s received reply for task type %s, msgtype: %s, response: %s',
-                     self.client_id, tt, msgtype, str(response)
+        logger.debug('Client %s received reply for task type %s, msgtype: %s',
+                     self.client_id, tt, msgtype
         )
 
         return response

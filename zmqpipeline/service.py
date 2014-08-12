@@ -105,23 +105,17 @@ class Service(object):
         return False
 
 
-    # def send_all_requests_to_backend(self):
-    #     raise NotImplementedError()
-    #     for request_id, requests in self.queued_requests.items():
-    #         while len(requests) > 0:
-    #             request = requests.pop()
-    #             self.backend.send_multipart(request)
-
 
     def queue_request(self, request_id, tt, data, routing_data):
         """
         Queues requests to be sent without assigning a worker (done later to distribute work to newly arriving workers)
         """
-        # index = self.task_type_index[tt]
         self.n_acks[request_id] = 0
+        task_index = 0
 
         if isinstance(data, list):
             self.n_requests[request_id] = len(data)
+            self.queued_responses[request_id] = [None] * len(data)
 
             # round-robin selection of workers
             for item in data:
@@ -129,13 +123,17 @@ class Service(object):
                 # self.queued_requests[request_id].append([
                 #     worker_id, b'', routing_data, b'', messages.create_data(tt, item)
                 # ])
-
+                item.update({
+                    'task_index': task_index
+                })
                 self.queued_requests[request_id].append({
                     'routing_data': routing_data,
                     'data': messages.create_data(tt, item),
-                    'task_type': tt
+                    'task_type': tt,
+                    'task_index': task_index
                 })
 
+                task_index += 1
                 # index += 1
                 # if index % len(self.workers_list[tt]) == 0:
                 #     index = 0
@@ -143,6 +141,7 @@ class Service(object):
 
         else:
             self.n_requests[request_id] = 1
+            self.queued_responses[request_id] = None
 
             # index += 1
             # if index % len(self.workers_list[tt]) == 0:
@@ -154,10 +153,14 @@ class Service(object):
             #     worker_id, b'', routing_data, b'', data
             # ])
 
+            data.update({
+                'task_index': task_index
+            })
             self.queued_requests[request_id].append({
                 'routing_data': routing_data,
                 'data': data,
-                'task_type': tt
+                'task_type': tt,
+                'task_index': task_index
             })
 
 
@@ -186,6 +189,7 @@ class Service(object):
                 routing_data = data['routing_data']
                 request_id = routing_data['request_id']
 
+                task_index = data['task_index']
                 response = data['response']
 
                 # addr, empty, msg = self.ack_socket.recv_multipart()
@@ -193,7 +197,8 @@ class Service(object):
                 # request_id = data['request_id']
 
                 self.n_acks[request_id] += 1
-                self.queued_responses[request_id].append(response)
+                # self.queued_responses[request_id].append(response)
+                self.queued_responses[request_id][task_index] = response
                 print 'received ACK from worker - n: %d' % self.n_acks[request_id]
 
                 if self.n_acks[request_id] == self.n_requests[request_id]:

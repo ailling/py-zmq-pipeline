@@ -25,12 +25,11 @@ if __name__ == '__main__':
         })
 
     reply = client.request(ls)
-    print 'received reply: ', reply
+
+    print 'reply messages:'
+    for item in reply:
+        print item
 
     diff = time.time() - start
-
-    import pdb
-    pdb.set_trace()
-
     print 'finished - took %.2f seconds' % diff
 
