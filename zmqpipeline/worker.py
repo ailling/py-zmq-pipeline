@@ -440,23 +440,24 @@ class ServiceWorker(object):
                 'routing_data': routing_data
             }))
 
-            continue
 
-
-            addr, empty, msg = self.socket.recv_multipart()
-
-            data, tt, msgtype = messages.get(msg)
-            self.logger.debug('Service worker %s received task type: %s, message type: %s, data: %s', self.worker_id, tt, msgtype, str(data))
-
-            if msgtype == messages.MESSAGE_TYPE_END:
-                self.logger.info('Worker %s received END message', self.worker_id)
-                break
-
-            # invoke client implementation
-            retdata = self.handle_message(data, tt, msgtype)
-            self.logger.debug('Service worker %s responding to %s with data: %s', self.worker_id, addr, str(retdata))
-
-            # self.socket.send_multipart([
-            #     addr, b'', messages.create_data(tt, retdata)
-            # ])
+            # continue
+            #
+            #
+            # addr, empty, msg = self.socket.recv_multipart()
+            #
+            # data, tt, msgtype = messages.get(msg)
+            # self.logger.debug('Service worker %s received task type: %s, message type: %s, data: %s', self.worker_id, tt, msgtype, str(data))
+            #
+            # if msgtype == messages.MESSAGE_TYPE_END:
+            #     self.logger.info('Worker %s received END message', self.worker_id)
+            #     break
+            #
+            # # invoke client implementation
+            # retdata = self.handle_message(data, tt, msgtype)
+            # self.logger.debug('Service worker %s responding to %s with data: %s', self.worker_id, addr, str(retdata))
+            #
+            # # self.socket.send_multipart([
+            # #     addr, b'', messages.create_data(tt, retdata)
+            # # ])
 

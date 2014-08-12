@@ -28,5 +28,9 @@ if __name__ == '__main__':
     print 'received reply: ', reply
 
     diff = time.time() - start
+
+    import pdb
+    pdb.set_trace()
+
     print 'finished - took %.2f seconds' % diff
 

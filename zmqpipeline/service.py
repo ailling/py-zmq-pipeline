@@ -199,7 +199,7 @@ class Service(object):
                 if self.n_acks[request_id] == self.n_requests[request_id]:
                     # all requests have finished processing, send message to the client
                     self.frontend.send_multipart([
-                        client_addr, b'', messages.create_success(tt, self.queued_responses)
+                        client_addr, b'', messages.create_success(tt, self.queued_responses[request_id])
                     ])
                 else:
                     self.send_request_to_backend()
@@ -207,55 +207,11 @@ class Service(object):
 
             if self.init_socket in socks and socks[self.init_socket] == zmq.POLLIN:
 
-                worker_addr = self.init_socket.recv()
+                worker_addr, empty, clientmsg = self.init_socket.recv_multipart()
 
-                # the empty frame
-                self.init_socket.recv()
-
-                clientmsg = self.init_socket.recv()
                 data, tt, msgtype = messages.get(clientmsg)
                 self.available_workers += 1
                 self.workers_list[tt].append(worker_addr)
-
-
-            if self.backend in socks and socks[self.backend] == zmq.POLLIN:
-                raise NotImplementedError()
-
-                # TODO: collect responses in fragments, issue response to the frontend when complete
-                worker_addr = self.backend.recv()
-
-                # the empty frame
-                self.backend.recv()
-
-                clientmsg = self.backend.recv()
-                data, tt, msgtype = messages.get(clientmsg)
-                self.available_workers += 1
-                self.workers_list[tt].append(worker_addr)
-
-                logger.debug('Received message from worker id: %s - tt: %s - msgtype: %s', worker_addr, tt, msgtype)
-
-                if msgtype == messages.MESSAGE_TYPE_ROUTING:
-                    assert 'address' in data
-                    client_addr = data['address']
-                    request_id = data['request_id']
-
-                    # empty address
-                    self.backend.recv()
-
-                    # get the message
-                    msg = self.backend.recv()
-                    data, tt, msgtype = messages.get(msg)
-
-                    logger.debug('Routing RESPONSE from worker %s to client %s', worker_addr, client_addr)
-                    self.queued_responses[request_id].append(data)
-
-                    logger.debug('*** N requests: %d responses: %d', self.n_requests[request_id], len(self.queued_responses[request_id]))
-                    if len(self.queued_responses[request_id]) == self.n_requests[request_id]:
-                        # TODO: clear the queued requests and responses
-                        self.frontend.send_multipart([
-                            client_addr, b'', messages.create_data(tt, self.queued_responses[request_id])
-                        ])
-
 
             # logger.debug('Workers available: %d', self.available_workers)
             if self.available_workers > 0:
