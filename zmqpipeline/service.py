@@ -206,6 +206,7 @@ class Service(object):
                     self.frontend.send_multipart([
                         client_addr, b'', messages.create_success(tt, self.queued_responses[request_id])
                     ])
+                    self.available_workers += 1
                 else:
                     self.send_request_to_backend()
 
